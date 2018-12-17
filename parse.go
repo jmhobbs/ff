@@ -65,7 +65,7 @@ func Parse(fs *flag.FlagSet, args []string, options ...Option) error {
 		provided[f.Name] = true
 	})
 
-	if c.envVarPrefix != "" {
+	if c.envVarPrefix != "" || c.envVarNoPrefix {
 		var errs []string
 		fs.VisitAll(func(f *flag.Flag) {
 			if provided[f.Name] {
@@ -76,7 +76,9 @@ func Parse(fs *flag.FlagSet, args []string, options ...Option) error {
 			{
 				key = strings.ToUpper(f.Name)
 				key = envVarReplacer.Replace(key)
-				key = strings.ToUpper(c.envVarPrefix) + "_" + key
+				if !c.envVarNoPrefix {
+					key = strings.ToUpper(c.envVarPrefix) + "_" + key
+				}
 			}
 			if value := os.Getenv(key); value != "" {
 				for _, individual := range strings.Split(value, ",") {
@@ -100,6 +102,7 @@ type Context struct {
 	configFileFlagName string
 	configFileParser   ConfigFileParser
 	envVarPrefix       string
+	envVarNoPrefix     bool
 }
 
 // Option controls some aspect of parse behavior.
@@ -138,6 +141,18 @@ func WithConfigFileParser(p ConfigFileParser) Option {
 func WithEnvVarPrefix(prefix string) Option {
 	return func(c *Context) {
 		c.envVarPrefix = prefix
+	}
+}
+
+// WithEnvVarNoPrefix tells parse to look in the environment for variables with
+// no prefix.  Flag names are converted to environment variables by
+// capitalizing them, and replacing separator characters like periods or hyphens
+// with underscores. Additionally, if the environment variable's value contains
+// commas, each comma-delimited token is treated as a separate instance of the
+// associated flag name.
+func WithEnvVarNoPrefix() Option {
+	return func(c *Context) {
+		c.envVarNoPrefix = true
 	}
 }
 
